@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Squad Signals</title>
+<style>
+  :root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6; /* blue */
+    --series-2:       #eb6834; /* orange */
+    --series-3:       #1baf7a; /* aqua */
+    --series-4:       #eda100; /* yellow */
+    --series-5:       #e87ba4; /* magenta */
+    --status-critical:#d03b3b;
+    --status-good:    #0ca30c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --series-1:       #3987e5;
+      --series-2:       #d95926;
+      --series-3:       #199e70;
+      --series-4:       #c98500;
+      --series-5:       #d55181;
+      --status-critical:#e66767;
+      --status-good:    #0ca30c;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-1:       #3987e5;
+    --series-2:       #d95926;
+    --series-3:       #199e70;
+    --series-4:       #c98500;
+    --series-5:       #d55181;
+    --status-critical:#e66767;
+    --status-good:    #0ca30c;
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    background: var(--page-plane);
+    color: var(--text-primary);
+  }
+  body { padding: 16px 16px 32px; max-width: 640px; margin: 0 auto; }
+
+  .wordmark { font-size: 13px; font-weight: 700; letter-spacing: 0.02em; color: var(--series-1); margin: 0 0 6px; }
+  h1 { font-size: 18px; margin: 0 0 2px; text-wrap: balance; }
+  .subtitle { color: var(--text-secondary); font-size: 13px; margin: 0 0 16px; }
+
+  .tabs {
+    display: flex; gap: 6px; margin-bottom: 14px;
+    border-bottom: 1px solid var(--gridline);
+    overflow-x: auto;
+  }
+  .tab-btn {
+    appearance: none; border: none; background: none;
+    font: inherit; font-size: 13px; font-weight: 600;
+    color: var(--text-secondary);
+    padding: 8px 10px; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  .tab-btn[aria-selected="true"] {
+    color: var(--text-primary);
+    border-bottom-color: var(--series-1);
+  }
+  .tab-btn:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 14px 6px;
+    margin-bottom: 14px;
+  }
+  .card h2 { font-size: 14px; margin: 0 0 2px; }
+  .card .desc { font-size: 12px; color: var(--text-secondary); margin: 0 0 10px; }
+
+  svg.chart { display: block; width: 100%; height: auto; overflow: visible; }
+  .bar-label { font-size: 11px; fill: var(--text-primary); }
+  .bar-value { font-size: 11px; font-weight: 600; fill: var(--text-primary); }
+  .bar-sub   { font-size: 10px; fill: var(--text-muted); }
+  .axis-line { stroke: var(--baseline); stroke-width: 1; }
+
+  .bar-hit { fill: transparent; cursor: pointer; }
+  .bar-hit:focus-visible { outline: 2px solid var(--series-1); outline-offset: -2px; }
+
+  .callout {
+    display: flex; align-items: flex-start; gap: 6px;
+    font-size: 11.5px; color: var(--text-secondary);
+    background: color-mix(in srgb, var(--status-critical) 10%, transparent);
+    border-radius: 8px; padding: 8px 10px; margin: 8px 0 12px;
+  }
+  .callout .icon { color: var(--status-critical); font-weight: 700; line-height: 1.3; }
+
+  .legend { display: flex; gap: 14px; font-size: 11.5px; color: var(--text-secondary); margin: 0 0 8px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-swatch { width: 10px; height: 10px; border-radius: 2px; }
+
+  .tooltip {
+    position: fixed;
+    pointer-events: none;
+    background: var(--text-primary);
+    color: var(--surface-1);
+    font-size: 11.5px;
+    line-height: 1.35;
+    padding: 6px 9px;
+    border-radius: 6px;
+    max-width: 220px;
+    transform: translate(-50%, -100%);
+    opacity: 0;
+    transition: opacity 0.08s ease;
+    z-index: 10;
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip b { font-weight: 700; }
+
+  .table-toggle {
+    background: none; border: none; font: inherit; font-size: 11.5px;
+    color: var(--text-secondary); text-decoration: underline; cursor: pointer;
+    padding: 0 0 10px;
+  }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 10px; display: none; }
+  table.data-table.visible { display: table; }
+  table.data-table th, table.data-table td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--gridline); }
+  table.data-table td:not(:first-child), table.data-table th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
+
+  footer { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+
+  <p class="wordmark">SQUAD SIGNALS</p>
+  <h1>Сезон 2025/26 — топ-5 лиг</h1>
+  <p class="subtitle">Статистика игроков (FBref/Kaggle) — проверка гипотез из блогов Sports.ru</p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab-btn" role="tab" aria-selected="true" data-panel="panel-concentration">Кто тащил</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-defense">Защита Реала</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-discipline">Дисциплина</button>
+  </div>
+
+  <section id="panel-concentration" class="panel active"></section>
+  <section id="panel-defense" class="panel"></section>
+  <section id="panel-discipline" class="panel"></section>
+
+  <div id="tooltip" class="tooltip" role="tooltip"></div>
+
+<script>
+const CHART_DATA = {
+  "concentration": [
+    { "team": "Arsenal", "total_ga": 118, "top_player": "Viktor Gyökeres", "top_ga": 15, "share_pct": 12.7 },
+    { "team": "Manchester City", "total_ga": 131, "top_player": "Erling Haaland", "top_ga": 35, "share_pct": 26.7 },
+    { "team": "Real Madrid", "total_ga": 133, "top_player": "Kylian Mbappé", "top_ga": 30, "share_pct": 22.6 },
+    { "team": "Barcelona", "total_ga": 162, "top_player": "Lamine Yamal", "top_ga": 27, "share_pct": 16.7 },
+    { "team": "Atlético Madrid", "total_ga": 98, "top_player": "Alexander Sørloth", "top_ga": 13, "share_pct": 13.3 }
+  ],
+  "defenders": [
+    { "player": "Trent Alexander-Arnold", "ga_per90": 1.09, "on_off": -0.38 },
+    { "player": "Antonio Rüdiger", "ga_per90": 0.96, "on_off": -0.25 },
+    { "player": "Dani Carvajal", "ga_per90": 0.92, "on_off": -0.26 },
+    { "player": "Álvaro Carreras", "ga_per90": 0.89, "on_off": 0.53 },
+    { "player": "Raúl Asencio", "ga_per90": 0.89, "on_off": -0.10 },
+    { "player": "Dean Huijsen", "ga_per90": 0.80, "on_off": 0.66 },
+    { "player": "Éder Militão", "ga_per90": 0.71, "on_off": 0.36 }
+  ],
+  "discipline": [
+    { "team": "Arsenal", "yellow": 51, "red": 0 },
+    { "team": "Manchester City", "yellow": 67, "red": 0 },
+    { "team": "Real Madrid", "yellow": 70, "red": 7 },
+    { "team": "Barcelona", "yellow": 60, "red": 2 },
+    { "team": "Atlético Madrid", "yellow": 79, "red": 5 }
+  ]
+};
+
+// Fixed per-entity color assignment — never by post-sort index/rank.
+const TEAM_COLOR = {
+  "Arsenal": "var(--series-1)",
+  "Manchester City": "var(--series-2)",
+  "Real Madrid": "var(--series-3)",
+  "Barcelona": "var(--series-5)",
+  "Atlético Madrid": "var(--series-4)"
+};
+
+const SVGNS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function text(str, x, y, cls, anchor, parent) {
+  const t = el("text", { x, y, class: cls, "text-anchor": anchor || "start" }, parent);
+  t.textContent = str;
+  return t;
+}
+// Horizontal bar path: rounded on the value-end (right), square at the baseline (left).
+function roundedBarPath(x0, x1, y, h, r) {
+  const w = Math.max(x1 - x0, 0);
+  r = Math.min(r, w, h / 2);
+  if (w <= 0) return `M ${x0} ${y} L ${x0} ${y + h} Z`;
+  return [
+    `M ${x0} ${y}`,
+    `L ${x1 - r} ${y}`,
+    `Q ${x1} ${y} ${x1} ${y + r}`,
+    `L ${x1} ${y + h - r}`,
+    `Q ${x1} ${y + h} ${x1 - r} ${y + h}`,
+    `L ${x0} ${y + h}`,
+    "Z"
+  ].join(" ");
+}
+
+const tooltipEl = document.getElementById("tooltip");
+function showTooltip(evt, html) {
+  tooltipEl.innerHTML = html;
+  tooltipEl.classList.add("visible");
+  moveTooltip(evt);
+}
+function moveTooltip(evt) {
+  const pt = evt.touches ? evt.touches[0] : evt;
+  tooltipEl.style.left = pt.clientX + "px";
+  tooltipEl.style.top = (pt.clientY - 12) + "px";
+}
+function hideTooltip() { tooltipEl.classList.remove("visible"); }
+
+function wireHover(hitEl, label, valueHtml) {
+  const html = `<b>${valueHtml}</b><br>${label}`;
+  hitEl.addEventListener("pointerenter", (e) => showTooltip(e, html));
+  hitEl.addEventListener("pointermove", moveTooltip);
+  hitEl.addEventListener("pointerleave", hideTooltip);
+  hitEl.addEventListener("focus", (e) => showTooltip(e, html));
+  hitEl.addEventListener("blur", hideTooltip);
+}
+
+// Single-series horizontal bar chart.
+function renderBarChart(container, items, opts) {
+  const rowH = 40, barH = 20, leftPad = 4, rightPad = 54, topPad = 8;
+  const width = 600;
+  const chartW = width - leftPad - rightPad;
+  const height = topPad + items.length * rowH;
+  const maxVal = Math.max(...items.map(opts.value)) * 1.15;
+
+  const svg = el("svg", { class: "chart", viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": opts.ariaLabel || "" }, container);
+
+  items.forEach((d, i) => {
+    const y = topPad + i * rowH;
+    const val = opts.value(d);
+    const barW = (val / maxVal) * chartW;
+    const color = opts.color ? opts.color(d, i) : "var(--series-1)";
+
+    text(opts.label(d), leftPad, y + 13, "bar-label", "start", svg);
+
+    const path = el("path", { d: roundedBarPath(leftPad, leftPad + barW, y + 16, barH, 4), fill: color }, svg);
+    text(opts.valueLabel(d), leftPad + barW + 6, y + 30, "bar-value", "start", svg);
+
+    const hit = el("rect", { x: 0, y, width: width, height: rowH, class: "bar-hit", tabindex: "0", role: "button", "aria-label": `${opts.label(d)}: ${opts.valueLabel(d)}` }, svg);
+    wireHover(hit, opts.tooltipSub ? opts.tooltipSub(d) : opts.label(d), opts.valueLabel(d));
+  });
+
+  return svg;
+}
+
+function buildTable(container, headers, rows) {
+  const btn = document.createElement("button");
+  btn.className = "table-toggle";
+  btn.textContent = "Показать таблицей";
+  const table = document.createElement("table");
+  table.className = "data-table";
+  const thead = document.createElement("tr");
+  headers.forEach(h => { const th = document.createElement("th"); th.textContent = h; thead.appendChild(th); });
+  table.appendChild(thead);
+  rows.forEach(r => {
+    const tr = document.createElement("tr");
+    r.forEach(v => { const td = document.createElement("td"); td.textContent = v; tr.appendChild(td); });
+    table.appendChild(tr);
+  });
+  btn.addEventListener("click", () => {
+    const showing = table.classList.toggle("visible");
+    btn.textContent = showing ? "Скрыть таблицу" : "Показать таблицей";
+  });
+  container.appendChild(btn);
+  container.appendChild(table);
+}
+
+// ---- Panel: goal concentration ----
+function renderConcentrationPanel() {
+  const root = document.getElementById("panel-concentration");
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `<h2>Доля лучшего бомбардира в атаке команды</h2>
+    <p class="desc">% от суммарных голов+пасов команды, которые приходятся на одного игрока</p>`;
+  root.appendChild(card);
+
+  const data = [...CHART_DATA.concentration].sort((a, b) => b.share_pct - a.share_pct);
+  renderBarChart(card, data, {
+    ariaLabel: "Доля лучшего бомбардира в очках команды",
+    label: d => d.team,
+    value: d => d.share_pct,
+    valueLabel: d => d.share_pct.toFixed(1) + "%",
+    color: d => TEAM_COLOR[d.team],
+    tooltipSub: d => `${d.top_player}: ${d.top_ga} из ${d.total_ga} Г+П команды`
+  });
+
+  buildTable(card, ["Команда", "Лидер", "Г+П лидера", "Г+П команды", "Доля"],
+    data.map(d => [d.team, d.top_player, d.top_ga, d.total_ga, d.share_pct.toFixed(1) + "%"]));
+}
+
+// ---- Panel: Real Madrid defense ----
+function renderDefensePanel() {
+  const root = document.getElementById("panel-defense");
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `<h2>Реал: пропущенные голы на 90 мин на поле</h2>
+    <p class="desc">Голы соперника, забитые пока игрок был на поле, на 90 минут</p>`;
+  root.appendChild(card);
+
+  const data = CHART_DATA.defenders;
+  renderBarChart(card, data, {
+    ariaLabel: "Пропущенные голы на 90 минут по защитникам Реала",
+    label: d => d.player,
+    value: d => d.ga_per90,
+    valueLabel: d => d.ga_per90.toFixed(2),
+    color: d => d.player === "Trent Alexander-Arnold" ? "var(--status-critical)" : "var(--series-1)",
+    tooltipSub: d => `On-Off: ${d.on_off > 0 ? "+" : ""}${d.on_off.toFixed(2)} (разница результата команды, когда игрок на поле)`
+  });
+
+  const callout = document.createElement("div");
+  callout.className = "callout";
+  callout.innerHTML = `<span class="icon">⚠</span><span>Алекандер-Арнольд — худший показатель среди защитников и единственный с заметно отрицательным On-Off: команда хуже играет, когда он на поле.</span>`;
+  card.appendChild(callout);
+
+  buildTable(card, ["Игрок", "ГА/90 на поле", "On-Off"],
+    data.map(d => [d.player, d.ga_per90.toFixed(2), (d.on_off > 0 ? "+" : "") + d.on_off.toFixed(2)]));
+}
+
+// ---- Panel: discipline (two small multiples — very different scales) ----
+function renderDisciplinePanel() {
+  const root = document.getElementById("panel-discipline");
+
+  const yCard = document.createElement("div");
+  yCard.className = "card";
+  yCard.innerHTML = `<h2>Жёлтые карточки за сезон</h2><p class="desc">Сумма по всей команде</p>`;
+  root.appendChild(yCard);
+  const yData = [...CHART_DATA.discipline].sort((a, b) => b.yellow - a.yellow);
+  renderBarChart(yCard, yData, {
+    ariaLabel: "Жёлтые карточки по командам",
+    label: d => d.team,
+    value: d => d.yellow,
+    valueLabel: d => String(d.yellow),
+    color: () => "var(--series-4)",
+    tooltipSub: d => `${d.team}: ${d.yellow} жёлтых карточек за сезон`
+  });
+
+  const rCard = document.createElement("div");
+  rCard.className = "card";
+  rCard.innerHTML = `<h2>Красные карточки за сезон</h2><p class="desc">Сумма по всей команде — обратите внимание на масштаб, он другой</p>`;
+  root.appendChild(rCard);
+  const rData = [...CHART_DATA.discipline].sort((a, b) => b.red - a.red);
+  renderBarChart(rCard, rData, {
+    ariaLabel: "Красные карточки по командам",
+    label: d => d.team,
+    value: d => d.red,
+    valueLabel: d => String(d.red),
+    color: () => "var(--status-critical)",
+    tooltipSub: d => `${d.team}: ${d.red} красных карточек за сезон`
+  });
+
+  const callout = document.createElement("div");
+  callout.className = "callout";
+  callout.innerHTML = `<span class="icon">⚠</span><span>У «Реала» больше всего красных карточек (7) — и они распределены между 7 разными игроками, а не одним нарушителем.</span>`;
+  rCard.appendChild(callout);
+
+  buildTable(yCard, ["Команда", "Жёлтые", "Красные"],
+    CHART_DATA.discipline.map(d => [d.team, d.yellow, d.red]));
+}
+
+renderConcentrationPanel();
+renderDefensePanel();
+renderDisciplinePanel();
+
+// ---- Tabs ----
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b => b.setAttribute("aria-selected", "false"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    btn.setAttribute("aria-selected", "true");
+    document.getElementById(btn.dataset.panel).classList.add("active");
+  });
+});
+
+// ---- Telegram Web App integration (guarded — works fine outside Telegram too) ----
+(function loadTelegramSDK() {
+  try {
+    const s = document.createElement("script");
+    s.src = "https://telegram.org/js/telegram-web-app.js";
+    s.onload = () => {
+      try {
+        const tg = window.Telegram && window.Telegram.WebApp;
+        if (!tg) return;
+        tg.ready();
+        tg.expand();
+        document.documentElement.dataset.theme = tg.colorScheme === "dark" ? "dark" : "light";
+        tg.onEvent("themeChanged", () => {
+          document.documentElement.dataset.theme = tg.colorScheme === "dark" ? "dark" : "light";
+        });
+      } catch (e) { /* not running inside Telegram — ignore */ }
+    };
+    s.onerror = () => { /* blocked or offline — page still works standalone */ };
+    document.head.appendChild(s);
+  } catch (e) { /* ignore */ }
+})();
+</script>
+</body>
+</html>
