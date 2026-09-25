@@ -157,6 +157,15 @@
   table.data-table td:not(:first-child), table.data-table th:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
 
   footer { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+
+  .axis-label { font-size: 10px; fill: var(--text-muted); }
+  .median-line { stroke: var(--baseline); stroke-width: 1; stroke-dasharray: 3 3; }
+  .quadrant-label { font-size: 9.5px; fill: var(--text-muted); font-weight: 600; }
+  .dot-hit { fill: transparent; cursor: pointer; }
+  .dot-hit:focus-visible { outline: 2px solid var(--series-1); outline-offset: 1px; }
+  .radar-grid { stroke: var(--gridline); stroke-width: 1; fill: none; }
+  .radar-ref { stroke: var(--baseline); stroke-width: 1; stroke-dasharray: 2 3; fill: none; }
+  .radar-axis-label { font-size: 10.5px; fill: var(--text-secondary); }
 </style>
 </head>
 <body>
@@ -169,11 +178,17 @@
     <button class="tab-btn" role="tab" aria-selected="true" data-panel="panel-concentration">Кто тащил</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-defense">Защита Реала</button>
     <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-discipline">Дисциплина</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-beeswarm">Трент в контексте</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-quadrant">Атака vs защита</button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-panel="panel-radar">Профиль игрока</button>
   </div>
 
   <section id="panel-concentration" class="panel active"></section>
   <section id="panel-defense" class="panel"></section>
   <section id="panel-discipline" class="panel"></section>
+  <section id="panel-beeswarm" class="panel"></section>
+  <section id="panel-quadrant" class="panel"></section>
+  <section id="panel-radar" class="panel"></section>
 
   <div id="tooltip" class="tooltip" role="tooltip"></div>
 
@@ -213,6 +228,9 @@ const TEAM_COLOR = {
   "Atlético Madrid": "var(--series-4)"
 };
 
+const BEESWARM_DATA = {"values": [1.288, 1.046, 0.875, 1.176, 1.494, 2.213, 1.097, 0.98, 1.967, 1.08, 1.795, 0.833, 1.592, 0.831, 1.343, 1.286, 1.085, 1.201, 1.828, 1.835, 1.182, 1.552, 1.379, 2.071, 1.519, 1.031, 1.591, 1.261, 1.189, 1.377, 0.895, 1.066, 1.469, 0.969, 0.888, 1.55, 1.185, 1.304, 0.69, 1.606, 1.295, 1.154, 1.486, 1.423, 1.615, 1.917, 0.996, 1.318, 1.348, 1.418, 0.843, 1.986, 1.826, 1.8, 1.337, 1.871, 0.765, 0.862, 1.329, 1.362, 1.276, 1.016, 1.516, 1.31, 1.238, 0.897, 1.552, 1.453, 1.419, 1.684, 1.324, 1.383, 1.262, 1.4, 0.788, 1.5, 1.159, 1.864, 1.673, 1.655, 1.036, 1.393, 2.019, 1.486, 1.786, 0.423, 1.381, 1.381, 1.341, 1.417, 1.258, 0.844, 0.566, 1.826, 1.554, 1.532, 1.76, 1.187, 1.778, 0.691, 1.768, 1.649, 0.888, 0.917, 1.134, 1.561, 1.127, 1.562, 1.32, 0.891, 1.451, 1.197, 1.519, 1.141, 1.797, 1.348, 1.452, 1.149, 1.081, 1.922, 1.603, 2.074, 1.329, 1.916, 1.409, 1.489, 1.641, 1.231, 1.548, 1.639, 1.522, 1.493, 1.822, 1.879, 1.368, 1.353, 1.246, 0.967, 1.229, 1.058, 1.379, 1.566, 1.465, 1.732, 1.05, 1.321, 1.22, 1.511, 1.667, 1.336, 0.909, 1.901, 0.924, 1.504, 1.379, 1.117, 1.569, 1.224, 1.561, 1.223, 1.014, 0.89, 1.322, 1.706, 1.455, 1.397, 1.348, 1.077, 1.27, 1.678, 1.452, 1.361, 1.144, 1.988, 1.406, 1.511, 2.264, 1.515, 1.394, 2.147, 1.811, 1.938, 1.076, 1.257, 1.977, 1.641, 0.865, 1.532, 1.194, 1.493, 1.731, 1.121, 0.89, 1.285, 1.29, 1.265, 1.116, 0.728, 0.971, 0.952, 1.319, 1.074, 2.283, 1.223, 1.23, 1.018, 2.5, 1.619, 2.089, 1.5, 1.34, 0.932, 1.722, 1.835, 1.148, 1.707, 1.571, 1.541, 1.15, 0.8, 1.39, 1.802, 1.394, 1.091, 0.855, 1.37, 0.98, 1.612, 1.148, 1.97, 2.109, 1.456, 1.232, 1.319, 1.689, 1.486, 0.733, 0.67, 1.461, 1.096, 1.465, 1.026, 0.955, 1.4, 0.796, 1.246, 1.886, 1.558, 1.235, 0.96, 1.321, 1.373, 1.559, 1.467, 0.917, 1.3, 1.369, 2.211, 0.968, 1.479, 1.767, 1.927, 1.232, 1.744, 1.16, 1.178, 0.822, 1.256, 1.354, 1.458, 1.341, 0.901, 0.775, 1.434, 0.818, 1.232, 2.139, 1.905, 1.517, 1.538, 1.185, 1.312, 1.306, 1.084, 1.0, 1.905, 1.957, 0.876, 1.616, 1.718, 1.754, 1.127, 1.989, 2.25, 1.561, 1.312, 1.442, 0.901, 1.677, 1.528, 2.041, 0.962, 1.005, 1.412, 1.468, 1.198, 1.486, 1.355, 1.295, 1.5, 1.461, 1.517, 1.538, 1.429, 0.946, 0.876, 1.074, 1.165, 1.608, 1.474, 1.847, 1.102, 1.36, 1.364, 1.858, 1.793, 1.263, 1.517, 1.287, 1.385, 0.654, 1.033, 2.118, 1.268, 1.527, 0.765, 1.193, 1.041, 1.246, 1.442, 1.069, 1.182, 1.555, 0.513, 1.761, 1.542, 0.681, 1.76, 1.182, 1.538, 1.095, 0.971, 1.406, 1.27, 2.0, 2.095, 1.56, 1.667, 0.917, 1.415, 1.424, 1.372, 1.513, 1.318, 0.857, 1.631, 1.3, 1.081, 1.53, 1.86, 0.896, 2.237, 1.36, 1.325, 0.709, 1.18, 1.213, 1.565, 1.259, 1.193, 1.452, 1.216, 1.544, 0.657, 1.408, 1.28, 0.727, 1.688, 1.174, 1.46, 1.55, 1.294, 1.224, 1.429, 1.765, 1.966, 0.839, 1.314, 1.221, 1.308, 1.603, 0.962, 1.161, 1.107, 1.39, 1.111, 1.545, 0.881, 1.093, 1.844, 1.188, 1.326, 1.299, 2.061, 1.339, 0.855, 1.573, 1.391, 1.377, 1.402, 1.378, 1.869, 2.01, 0.85, 1.503, 1.033, 1.345, 1.277, 1.597, 1.547, 1.121, 1.034, 1.477, 1.277, 1.376, 2.231, 1.104, 1.599, 1.748, 1.044, 1.486, 1.638, 1.737, 1.265, 1.286, 1.419, 1.441, 1.046, 1.333, 1.827, 1.391, 0.787, 1.245, 1.422, 0.994, 1.197, 1.265, 1.375, 1.338, 1.179, 1.419, 1.443, 1.963, 1.221, 1.145, 1.585, 1.162, 1.575, 0.988, 1.014, 1.324, 1.49, 0.533, 1.307, 1.93, 1.198, 0.754, 0.964, 1.168, 1.045, 0.99, 1.551, 0.69, 1.75, 1.765, 1.629, 1.438, 1.434, 2.222, 1.279, 1.503, 1.015, 1.103, 1.579, 1.379, 0.746, 1.074, 1.593, 1.036, 2.25, 1.871, 1.818, 1.301, 1.414, 1.452, 1.429, 1.257, 1.371, 1.534, 2.417, 1.404, 2.25, 1.306, 1.333, 1.673, 0.541, 1.277, 1.36, 0.948, 1.117, 1.024, 1.472, 1.588, 1.593, 1.228, 1.421, 1.027, 1.027, 1.517, 2.097, 1.329, 1.297, 1.419, 1.937, 1.098, 1.805, 1.472, 1.343, 1.206, 1.588, 2.185, 1.581, 0.733, 1.782, 1.591, 0.739, 1.022, 1.606, 1.328, 2.455, 1.564, 1.498, 1.534, 1.436, 1.36, 2.169, 1.955, 1.678, 1.048, 2.0, 0.955, 1.648, 1.24, 1.401, 1.514, 1.088, 1.522, 0.756, 0.921, 0.971, 1.395, 1.373, 2.061, 1.377, 1.667, 1.25, 1.341, 1.026, 1.391, 1.275, 1.224, 1.544, 0.791, 1.513, 1.632, 1.919, 1.623, 1.262, 1.861, 1.36, 1.232, 1.32, 2.339, 1.37, 1.71, 1.389, 0.943, 0.846, 1.416, 1.525, 1.79, 1.28, 1.98, 1.337, 1.423, 1.602], "highlights": [{"player": "Trent Alexander-Arnold", "squad": "Real Madrid", "ga_per90": 1.09, "percentile_better_than_pct": 79.5}, {"player": "Éder Militão", "squad": "Real Madrid", "ga_per90": 0.71, "percentile_better_than_pct": 98.0}]};
+const QUADRANT_DATA = [{"team": "Leeds United", "total_ga": 72, "avg_def_ga90": 1.415, "comp": "eng Premier League"}, {"team": "Wolves", "total_ga": 44, "avg_def_ga90": 1.837, "comp": "eng Premier League"}, {"team": "Nottingham Forest", "total_ga": 81, "avg_def_ga90": 1.333, "comp": "eng Premier League"}, {"team": "Celta Vigo", "total_ga": 88, "avg_def_ga90": 1.391, "comp": "es La Liga"}, {"team": "Marseille", "total_ga": 109, "avg_def_ga90": 1.252, "comp": "fr Ligue 1"}, {"team": "Angers", "total_ga": 45, "avg_def_ga90": 1.473, "comp": "fr Ligue 1"}, {"team": "Nice", "total_ga": 60, "avg_def_ga90": 1.667, "comp": "fr Ligue 1"}, {"team": "Lens", "total_ga": 116, "avg_def_ga90": 1.014, "comp": "fr Ligue 1"}, {"team": "Levante", "total_ga": 78, "avg_def_ga90": 1.825, "comp": "es La Liga"}, {"team": "Lorient", "total_ga": 78, "avg_def_ga90": 1.663, "comp": "fr Ligue 1"}, {"team": "Nantes", "total_ga": 46, "avg_def_ga90": 1.495, "comp": "fr Ligue 1"}, {"team": "Lyon", "total_ga": 93, "avg_def_ga90": 1.289, "comp": "fr Ligue 1"}, {"team": "Torino", "total_ga": 67, "avg_def_ga90": 1.625, "comp": "it Serie A"}, {"team": "Getafe", "total_ga": 57, "avg_def_ga90": 1.042, "comp": "es La Liga"}, {"team": "Aston Villa", "total_ga": 93, "avg_def_ga90": 1.318, "comp": "eng Premier League"}, {"team": "Toulouse", "total_ga": 78, "avg_def_ga90": 1.482, "comp": "fr Ligue 1"}, {"team": "Metz", "total_ga": 51, "avg_def_ga90": 2.141, "comp": "fr Ligue 1"}, {"team": "Inter", "total_ga": 149, "avg_def_ga90": 0.965, "comp": "it Serie A"}, {"team": "Köln", "total_ga": 80, "avg_def_ga90": 1.834, "comp": "de Bundesliga"}, {"team": "Chelsea", "total_ga": 96, "avg_def_ga90": 1.486, "comp": "eng Premier League"}, {"team": "Sevilla", "total_ga": 77, "avg_def_ga90": 1.547, "comp": "es La Liga"}, {"team": "Bournemouth", "total_ga": 92, "avg_def_ga90": 1.487, "comp": "eng Premier League"}, {"team": "Freiburg", "total_ga": 78, "avg_def_ga90": 1.734, "comp": "de Bundesliga"}, {"team": "Como", "total_ga": 111, "avg_def_ga90": 0.746, "comp": "it Serie A"}, {"team": "Dortmund", "total_ga": 120, "avg_def_ga90": 1.086, "comp": "de Bundesliga"}, {"team": "Sunderland", "total_ga": 63, "avg_def_ga90": 1.254, "comp": "eng Premier League"}, {"team": "Monaco", "total_ga": 99, "avg_def_ga90": 1.631, "comp": "fr Ligue 1"}, {"team": "Wolfsburg", "total_ga": 79, "avg_def_ga90": 2.056, "comp": "de Bundesliga"}, {"team": "Real Betis", "total_ga": 97, "avg_def_ga90": 1.248, "comp": "es La Liga"}, {"team": "Juventus", "total_ga": 100, "avg_def_ga90": 0.919, "comp": "it Serie A"}, {"team": "Pisa", "total_ga": 38, "avg_def_ga90": 1.964, "comp": "it Serie A"}, {"team": "Elche", "total_ga": 80, "avg_def_ga90": 1.524, "comp": "es La Liga"}, {"team": "St Pauli", "total_ga": 50, "avg_def_ga90": 1.813, "comp": "de Bundesliga"}, {"team": "Valencia", "total_ga": 78, "avg_def_ga90": 1.508, "comp": "es La Liga"}, {"team": "Werder Bremen", "total_ga": 64, "avg_def_ga90": 1.813, "comp": "de Bundesliga"}, {"team": "Real Madrid", "total_ga": 133, "avg_def_ga90": 0.905, "comp": "es La Liga"}, {"team": "Oviedo", "total_ga": 44, "avg_def_ga90": 1.58, "comp": "es La Liga"}, {"team": "West Ham United", "total_ga": 75, "avg_def_ga90": 1.743, "comp": "eng Premier League"}, {"team": "Real Sociedad", "total_ga": 95, "avg_def_ga90": 1.676, "comp": "es La Liga"}, {"team": "Auxerre", "total_ga": 49, "avg_def_ga90": 1.31, "comp": "fr Ligue 1"}, {"team": "Atalanta", "total_ga": 83, "avg_def_ga90": 0.983, "comp": "it Serie A"}, {"team": "Rennes", "total_ga": 99, "avg_def_ga90": 1.508, "comp": "fr Ligue 1"}, {"team": "Manchester City", "total_ga": 131, "avg_def_ga90": 0.891, "comp": "eng Premier League"}, {"team": "Hellas Verona", "total_ga": 39, "avg_def_ga90": 1.564, "comp": "it Serie A"}, {"team": "Brentford", "total_ga": 86, "avg_def_ga90": 1.39, "comp": "eng Premier League"}, {"team": "Brest", "total_ga": 72, "avg_def_ga90": 1.612, "comp": "fr Ligue 1"}, {"team": "Villarreal", "total_ga": 118, "avg_def_ga90": 1.178, "comp": "es La Liga"}, {"team": "Rayo Vallecano", "total_ga": 70, "avg_def_ga90": 1.195, "comp": "es La Liga"}, {"team": "Hoffenheim", "total_ga": 106, "avg_def_ga90": 1.474, "comp": "de Bundesliga"}, {"team": "Cagliari", "total_ga": 70, "avg_def_ga90": 1.39, "comp": "it Serie A"}, {"team": "Everton", "total_ga": 79, "avg_def_ga90": 1.336, "comp": "eng Premier League"}, {"team": "Alavés", "total_ga": 67, "avg_def_ga90": 1.485, "comp": "es La Liga"}, {"team": "Liverpool", "total_ga": 105, "avg_def_ga90": 1.447, "comp": "eng Premier League"}, {"team": "Atlético Madrid", "total_ga": 98, "avg_def_ga90": 1.112, "comp": "es La Liga"}, {"team": "Parma", "total_ga": 43, "avg_def_ga90": 1.206, "comp": "it Serie A"}, {"team": "Athletic Club", "total_ga": 72, "avg_def_ga90": 1.657, "comp": "es La Liga"}, {"team": "Eintracht Frankfurt", "total_ga": 103, "avg_def_ga90": 1.958, "comp": "de Bundesliga"}, {"team": "Burnley", "total_ga": 62, "avg_def_ga90": 1.969, "comp": "eng Premier League"}, {"team": "Napoli", "total_ga": 96, "avg_def_ga90": 0.947, "comp": "it Serie A"}, {"team": "Mainz 05", "total_ga": 70, "avg_def_ga90": 1.654, "comp": "de Bundesliga"}, {"team": "Strasbourg", "total_ga": 99, "avg_def_ga90": 1.507, "comp": "fr Ligue 1"}, {"team": "Genoa", "total_ga": 62, "avg_def_ga90": 1.407, "comp": "it Serie A"}, {"team": "Fulham", "total_ga": 69, "avg_def_ga90": 1.328, "comp": "eng Premier League"}, {"team": "Lille", "total_ga": 84, "avg_def_ga90": 1.073, "comp": "fr Ligue 1"}, {"team": "Leverkusen", "total_ga": 116, "avg_def_ga90": 1.414, "comp": "de Bundesliga"}, {"team": "Espanyol", "total_ga": 71, "avg_def_ga90": 1.364, "comp": "es La Liga"}, {"team": "Roma", "total_ga": 100, "avg_def_ga90": 0.889, "comp": "it Serie A"}, {"team": "Union Berlin", "total_ga": 73, "avg_def_ga90": 1.703, "comp": "de Bundesliga"}, {"team": "Girona", "total_ga": 65, "avg_def_ga90": 1.416, "comp": "es La Liga"}, {"team": "Barcelona", "total_ga": 162, "avg_def_ga90": 0.89, "comp": "es La Liga"}, {"team": "Stuttgart", "total_ga": 126, "avg_def_ga90": 1.388, "comp": "de Bundesliga"}, {"team": "Le Havre", "total_ga": 53, "avg_def_ga90": 1.231, "comp": "fr Ligue 1"}, {"team": "Osasuna", "total_ga": 72, "avg_def_ga90": 1.359, "comp": "es La Liga"}, {"team": "Udinese", "total_ga": 74, "avg_def_ga90": 1.217, "comp": "it Serie A"}, {"team": "Arsenal", "total_ga": 118, "avg_def_ga90": 0.745, "comp": "eng Premier League"}, {"team": "Mallorca", "total_ga": 79, "avg_def_ga90": 1.646, "comp": "es La Liga"}, {"team": "Paris FC", "total_ga": 74, "avg_def_ga90": 1.563, "comp": "fr Ligue 1"}, {"team": "Milan", "total_ga": 90, "avg_def_ga90": 0.982, "comp": "it Serie A"}, {"team": "Cremonese", "total_ga": 54, "avg_def_ga90": 1.709, "comp": "it Serie A"}, {"team": "Brighton", "total_ga": 84, "avg_def_ga90": 1.218, "comp": "eng Premier League"}, {"team": "RB Leipzig", "total_ga": 112, "avg_def_ga90": 1.514, "comp": "de Bundesliga"}, {"team": "Sassuolo", "total_ga": 80, "avg_def_ga90": 1.255, "comp": "it Serie A"}, {"team": "Fiorentina", "total_ga": 63, "avg_def_ga90": 1.43, "comp": "it Serie A"}, {"team": "Hamburger SV", "total_ga": 70, "avg_def_ga90": 1.646, "comp": "de Bundesliga"}, {"team": "Lecce", "total_ga": 48, "avg_def_ga90": 1.428, "comp": "it Serie A"}, {"team": "Augsburg", "total_ga": 72, "avg_def_ga90": 1.773, "comp": "de Bundesliga"}, {"team": "Paris Saint-Germain", "total_ga": 128, "avg_def_ga90": 0.838, "comp": "fr Ligue 1"}, {"team": "Newcastle United", "total_ga": 85, "avg_def_ga90": 1.349, "comp": "eng Premier League"}, {"team": "Lazio", "total_ga": 67, "avg_def_ga90": 1.045, "comp": "it Serie A"}, {"team": "Manchester Utd", "total_ga": 112, "avg_def_ga90": 1.298, "comp": "eng Premier League"}, {"team": "Heidenheim", "total_ga": 69, "avg_def_ga90": 2.21, "comp": "de Bundesliga"}, {"team": "Crystal Palace", "total_ga": 63, "avg_def_ga90": 1.397, "comp": "eng Premier League"}, {"team": "Tottenham Hotspur", "total_ga": 83, "avg_def_ga90": 1.595, "comp": "eng Premier League"}, {"team": "Bologna", "total_ga": 77, "avg_def_ga90": 1.219, "comp": "it Serie A"}, {"team": "Bayern Munich", "total_ga": 210, "avg_def_ga90": 1.046, "comp": "de Bundesliga"}, {"team": "Gladbach", "total_ga": 69, "avg_def_ga90": 1.513, "comp": "de Bundesliga"}];
+const RADAR_DATA = {"player": "Trent Alexander-Arnold", "squad": "Real Madrid", "n_population": 606, "metrics": {"Защита (мало пропущено)": 79.5, "On-Off команды": 26.6, "Атака (Г+П/90)": 97.5, "Дисциплина": 16.0, "Отборы+перехваты": 43.7, "Игровое время": 9.7}};
 const SVGNS = "http://www.w3.org/2000/svg";
 function el(tag, attrs, parent) {
   const e = document.createElementNS(SVGNS, tag);
@@ -357,7 +375,7 @@ function renderDefensePanel() {
 
   const callout = document.createElement("div");
   callout.className = "callout";
-  callout.innerHTML = `<span class="icon">⚠</span><span>Алекандер-Арнольд — худший показатель среди защитников и единственный с заметно отрицательным On-Off: команда хуже играет, когда он на поле.</span>`;
+  callout.innerHTML = `<span class="icon">⚠</span><span>Александер-Арнольд — худший показатель среди защитников «Реала» и единственный с заметно отрицательным On-Off. Но это сравнение только внутри команды — в масштабах всей лиги картина мягче, см. вкладку «Трент в контексте».</span>`;
   card.appendChild(callout);
 
   buildTable(card, ["Игрок", "ГА/90 на поле", "On-Off"],
@@ -405,9 +423,214 @@ function renderDisciplinePanel() {
     CHART_DATA.discipline.map(d => [d.team, d.yellow, d.red]));
 }
 
+// ---- Panel: beeswarm — Trent in the context of the full league ----
+function renderBeeswarmPanel() {
+  const root = document.getElementById("panel-beeswarm");
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `<h2>Пропущенные голы/90 — все защитники топ-5 лиг</h2>
+    <p class="desc">${BEESWARM_DATA.values.length} защитников (мин. 10×90 минут). Каждая точка — игрок.</p>`;
+  root.appendChild(card);
+
+  const values = BEESWARM_DATA.values;
+  const width = 600, height = 260;
+  const leftPad = 12, rightPad = 12, topPad = 16, bottomPad = 28;
+  const plotW = width - leftPad - rightPad;
+  const min = Math.min(...values), max = Math.max(...values);
+  const sorted = [...values].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+
+  const xScale = v => leftPad + ((v - min) / (max - min)) * plotW;
+
+  // Simple beeswarm: bin by x, stack vertically within each bin.
+  const r = 3, gap = 1;
+  const binWidth = (r * 2 + gap);
+  const nBins = Math.ceil(plotW / binWidth);
+  const bins = new Array(nBins).fill(0);
+  const centerY = (height - topPad - bottomPad) / 2 + topPad;
+
+  const svg = el("svg", { class: "chart", viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Распределение пропущенных голов на 90 минут по защитникам" }, card);
+
+  // Median reference line
+  const medianX = xScale(median);
+  el("line", { class: "median-line", x1: medianX, x2: medianX, y1: topPad, y2: height - bottomPad }, svg);
+  text("медиана лиги: " + median.toFixed(2), medianX, topPad - 4, "axis-label", "middle", svg);
+
+  values.forEach(v => {
+    const bin = Math.min(nBins - 1, Math.floor((xScale(v) - leftPad) / binWidth));
+    const stack = bins[bin]++;
+    const side = stack % 2 === 0 ? 1 : -1;
+    const depth = Math.ceil(stack / 2);
+    const y = centerY + side * depth * (r * 2 + gap);
+    const cx = leftPad + bin * binWidth + binWidth / 2;
+    el("circle", { cx, cy: y, r, fill: "var(--baseline)", opacity: 0.55 }, svg);
+  });
+
+  BEESWARM_DATA.highlights.forEach((h, i) => {
+    const cx = xScale(h.ga_per90);
+    const cy = centerY + (i === 0 ? -1 : 1) * 46;
+    el("line", { x1: cx, x2: cx, y1: centerY, y2: cy, stroke: "var(--series-3)", "stroke-width": 1 }, svg);
+    const hit = el("circle", { cx, cy, r: 7, fill: "var(--series-3)", stroke: "var(--surface-1)", "stroke-width": 2, class: "dot-hit", tabindex: "0", role: "button" }, svg);
+    hit.style.fill = "var(--series-3)";
+    hit.style.cursor = "pointer";
+    text(h.player, cx, cy + (i === 0 ? -12 : 20), "bar-value", "middle", svg);
+    text(`${h.ga_per90.toFixed(2)} · лучше ${h.percentile_better_than_pct}% лиги`, cx, cy + (i === 0 ? -1 : 33), "bar-sub", "middle", svg);
+    wireHover(hit, `${h.squad} · лучше ${h.percentile_better_than_pct}% защитников лиги`, h.ga_per90.toFixed(2));
+  });
+
+  text(min.toFixed(1), leftPad, height - 8, "axis-label", "start", svg);
+  text(max.toFixed(1), width - rightPad, height - 8, "axis-label", "end", svg);
+  text("← лучше защита    хуже защита →", width / 2, height - 8, "axis-label", "middle", svg);
+
+  const callout = document.createElement("div");
+  callout.className = "callout";
+  callout.style.background = "color-mix(in srgb, var(--series-3) 12%, transparent)";
+  callout.innerHTML = `<span class="icon" style="color:var(--series-3)">i</span><span>В масштабах всей лиги Александер-Арнольд лучше 79.5% защитников — просто у «Реала» в целом сильная защита, и на её фоне он выглядит слабым звеном именно в сравнении со своими же партнёрами. Милитау — топ-2% лиги.</span>`;
+  card.appendChild(callout);
+}
+
+// ---- Panel: quadrant scatter — attack vs defense, all 96 teams ----
+function renderQuadrantPanel() {
+  const root = document.getElementById("panel-quadrant");
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `<h2>Атака vs защита — все команды топ-5 лиг</h2>
+    <p class="desc">X: суммарные Г+П команды · Y: ГА/90 на поле у защитников (инвертировано — выше = лучше защита)</p>`;
+  root.appendChild(card);
+
+  const data = QUADRANT_DATA;
+  const width = 600, height = 460;
+  const pad = { l: 34, r: 16, t: 16, b: 34 };
+  const plotW = width - pad.l - pad.r, plotH = height - pad.t - pad.b;
+
+  const xVals = data.map(d => d.total_ga), yVals = data.map(d => d.avg_def_ga90);
+  const xMin = Math.min(...xVals) * 0.95, xMax = Math.max(...xVals) * 1.05;
+  const yMin = Math.min(...yVals) * 0.9, yMax = Math.max(...yVals) * 1.05;
+  const xScale = v => pad.l + ((v - xMin) / (xMax - xMin)) * plotW;
+  // Inverted: lower avg_def_ga90 (better defense) plots higher on screen.
+  const yScale = v => pad.t + ((v - yMin) / (yMax - yMin)) * plotH;
+
+  const sorted = [...xVals].sort((a, b) => a - b);
+  const xMedian = sorted[Math.floor(sorted.length / 2)];
+  const ySorted = [...yVals].sort((a, b) => a - b);
+  const yMedian = ySorted[Math.floor(ySorted.length / 2)];
+
+  const svg = el("svg", { class: "chart", viewBox: `0 0 ${width} ${height}`, role: "img", "aria-label": "Атака против защиты по всем командам" }, card);
+
+  el("line", { class: "median-line", x1: xScale(xMedian), x2: xScale(xMedian), y1: pad.t, y2: height - pad.b }, svg);
+  el("line", { class: "median-line", x1: pad.l, x2: width - pad.r, y1: yScale(yMedian), y2: yScale(yMedian) }, svg);
+
+  text("сильная защита, сильная атака", width - pad.r, pad.t + 10, "quadrant-label", "end", svg);
+  text("слабая защита, сильная атака", width - pad.r, height - pad.b - 4, "quadrant-label", "end", svg);
+  text("сильная защита, слабая атака", pad.l, pad.t + 10, "quadrant-label", "start", svg);
+  text("слабая защита, слабая атака", pad.l, height - pad.b - 4, "quadrant-label", "start", svg);
+
+  text("Г+П команды →", width / 2, height - 6, "axis-label", "middle", svg);
+
+  const labelOffsets = {
+    "Real Madrid": { dx: 8, dy: -14 },
+    "Manchester City": { dx: -8, dy: 14 },
+    "Arsenal": { dx: 8, dy: 4 },
+    "Barcelona": { dx: 8, dy: -4 },
+    "Atlético Madrid": { dx: 8, dy: 14 }
+  };
+
+  data.forEach(d => {
+    const isHighlight = !!TEAM_COLOR[d.team];
+    const cx = xScale(d.total_ga), cy = yScale(d.avg_def_ga90);
+    const r = isHighlight ? 6 : 3;
+    const fill = isHighlight ? TEAM_COLOR[d.team] : "var(--baseline)";
+    el("circle", { cx, cy, r, fill, opacity: isHighlight ? 1 : 0.5 }, svg);
+    if (isHighlight) {
+      const off = labelOffsets[d.team] || { dx: 8, dy: -8 };
+      text(d.team, cx + off.dx, cy + off.dy, "bar-value", off.dx < 0 ? "end" : "start", svg);
+    }
+    const hit = el("circle", { cx, cy, r: Math.max(r, 10), class: "dot-hit", tabindex: "0", role: "button" }, svg);
+    wireHover(hit, `${d.team} (${d.comp.replace(/^[a-z]+ /, "")})`, `Г+П: ${d.total_ga} · ГА/90: ${d.avg_def_ga90.toFixed(2)}`);
+  });
+
+  const callout = document.createElement("div");
+  callout.className = "callout";
+  callout.style.background = "color-mix(in srgb, var(--series-1) 10%, transparent)";
+  callout.innerHTML = `<span class="icon" style="color:var(--series-1)">i</span><span>Все 5 команд сидят в квадранте «сильная атака и защита» среди 96 клубов топ-5 лиг — но «Арсенал» держит лучшую защиту даже в этой элитной компании, при самой скромной атаке из пяти.</span>`;
+  card.appendChild(callout);
+
+  buildTable(card, ["Команда", "Г+П", "ГА/90 защитников"],
+    [...data].filter(d => TEAM_COLOR[d.team]).sort((a, b) => a.avg_def_ga90 - b.avg_def_ga90)
+      .map(d => [d.team, d.total_ga, d.avg_def_ga90.toFixed(2)]));
+}
+
+// ---- Panel: radar — single player percentile profile ----
+function renderRadarPanel() {
+  const root = document.getElementById("panel-radar");
+  const card = document.createElement("div");
+  card.className = "card";
+  card.innerHTML = `<h2>${RADAR_DATA.player} — профиль по перцентилям</h2>
+    <p class="desc">Место среди ${RADAR_DATA.n_population} защитников топ-5 лиг. 100 = лучший в лиге по метрике, 50 = медиана.</p>`;
+  root.appendChild(card);
+
+  const entries = Object.entries(RADAR_DATA.metrics);
+  const N = entries.length;
+  const size = 600, cx = size / 2, cy = 260, maxR = 170;
+  const svg = el("svg", { class: "chart", viewBox: `0 0 ${size} 520`, role: "img", "aria-label": "Перцентильный профиль игрока" }, card);
+
+  const angle = i => -Math.PI / 2 + i * (2 * Math.PI / N);
+
+  // Grid rings
+  [20, 40, 60, 80, 100].forEach(step => {
+    const pts = entries.map((_, i) => {
+      const rr = (step / 100) * maxR;
+      return `${cx + rr * Math.cos(angle(i))},${cy + rr * Math.sin(angle(i))}`;
+    }).join(" ");
+    el("polygon", { points: pts, class: "radar-grid" }, svg);
+  });
+  // 50th-percentile reference ring (league average), dashed.
+  const refPts = entries.map((_, i) => {
+    const rr = 0.5 * maxR;
+    return `${cx + rr * Math.cos(angle(i))},${cy + rr * Math.sin(angle(i))}`;
+  }).join(" ");
+  el("polygon", { points: refPts, class: "radar-ref" }, svg);
+
+  // Axis lines + labels
+  entries.forEach(([label], i) => {
+    const a = angle(i);
+    el("line", { x1: cx, y1: cy, x2: cx + maxR * Math.cos(a), y2: cy + maxR * Math.sin(a), class: "radar-grid" }, svg);
+    const lx = cx + (maxR + 22) * Math.cos(a), ly = cy + (maxR + 22) * Math.sin(a);
+    const anchor = Math.abs(Math.cos(a)) < 0.3 ? "middle" : (Math.cos(a) > 0 ? "start" : "end");
+    label.split(" ").forEach((word, wi) => {
+      text(word, lx, ly + wi * 12, "radar-axis-label", anchor, svg);
+    });
+  });
+
+  // Data polygon
+  const dataPts = entries.map(([, v], i) => {
+    const rr = (v / 100) * maxR;
+    return [cx + rr * Math.cos(angle(i)), cy + rr * Math.sin(angle(i))];
+  });
+  el("polygon", { points: dataPts.map(p => p.join(",")).join(" "), fill: "var(--series-3)", opacity: 0.22, stroke: "var(--series-3)", "stroke-width": 2 }, svg);
+
+  entries.forEach(([, v], i) => {
+    const [x, y] = dataPts[i];
+    el("circle", { cx: x, cy: y, r: 4, fill: "var(--series-3)", stroke: "var(--surface-1)", "stroke-width": 2 }, svg);
+    const a = angle(i);
+    text(v.toFixed(0), x + 10 * Math.cos(a), y + 10 * Math.sin(a) - 4, "bar-value", "middle", svg);
+  });
+
+  const callout = document.createElement("div");
+  callout.className = "callout";
+  callout.style.background = "color-mix(in srgb, var(--series-3) 12%, transparent)";
+  callout.innerHTML = `<span class="icon" style="color:var(--series-3)">i</span><span>Профиль явно несимметричный: элитная атакующая отдача для защитника (97.5-й перцентиль), приличная базовая защита (79.5), но низкая дисциплина (16), мало отборов+перехватов (43.7) и заметно урезанное игровое время (9.7) — похоже на игрока, который ещё адаптируется физически и тактически.</span>`;
+  card.appendChild(callout);
+
+  buildTable(card, ["Метрика", "Перцентиль"], entries.map(([k, v]) => [k, v.toFixed(1)]));
+}
+
 renderConcentrationPanel();
 renderDefensePanel();
 renderDisciplinePanel();
+renderBeeswarmPanel();
+renderQuadrantPanel();
+renderRadarPanel();
 
 // ---- Tabs ----
 document.querySelectorAll(".tab-btn").forEach(btn => {
